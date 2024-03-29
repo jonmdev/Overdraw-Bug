@@ -1,4 +1,7 @@
-﻿namespace Overdraw_Bug {
+﻿using Microsoft.Maui.Controls.Platform;
+using Microsoft.Maui.Platform;
+
+namespace Overdraw_Bug {
     public partial class App : Application {
         public App() {
             InitializeComponent();
@@ -6,12 +9,12 @@
             //=====================
             //DEMO CONTROLS
             //=====================
-            bool drawBackground = true;
-            bool addMoreItems = false; //set false and can still see screen overdraws on nothing
-            bool animateOverElement = true;
+            bool drawBackground = false;
+            bool addMoreItems = true; 
+            bool animateOverElement = false;
             Type typeToAdd = typeof(AbsoluteLayout); //change type to add here (Border/BoxView increase overdraw even when empty, Layout/Image do not)
-            bool colorizeExtras = true; //add color to Bg or not
-            int numToAdd = 3;
+            bool colorizeExtras = true; //add color to Bg elements or not
+            int numToAdd = 1;
 
             //=====================
             //BUILD PAGE
@@ -20,14 +23,26 @@
             if (!drawBackground) {
                 mainPage.BackgroundColor = null;
             }
+            mainPage.BackgroundColor = Colors.Black; //NOTE THAT IF YOU MANUALLY SET THIS HERE AND THEN LATER (EG. HANDLER CHANGED BELOW) UNSET IT YOU MUST USE ANDROID METHOD OR STILL OVERDRAWS, MAUI DOESN'T WORK TO NULL IT
             MainPage = mainPage;
-            
+
             //=======================
-            //ABNORMAL BEHAVIORS
+            //THINGS TO SEE
             //=======================
             //See: https://developer.android.com/topic/performance/rendering/inspect-gpu-rendering
-            //1) Empty project overdraws by 1 (blue screen with overdraw mode activated in Android phone) - set "addMoreItems = false" and build to see - should be white screen.
-            //2) Adding Border/BoxView elements increase overdraw even if they have no background, while Layout/Image elements do not (things without backgrounds shouldn't cause overdraw)
+            //1) ContentPage naturally draws with background, setting to null and nothing else solves this.
+            //2) If you set ContentPage background to any color (eg. black), then set it to null after using Maui API, this still overdraws using Maui (must use Android.Views.View.SetBackground(null) to reverse this). Not sure if this applies to other views too.
+            //2) Another overdraw occurs due to DecorView being given a white background by default and needing this line to resolve: Platform.CurrentActivity.Window.DecorView.SetBackground(null);
+            //Note also: Adding Border/BoxView elements increase overdraw even if they have no background, while Layout/Image elements do not (but this is normal due to the Box/Border being hardware layers)
+
+            //=======================
+            //FIXES
+            //=======================
+            //To get no overdraw:
+            //1) ContentPage must be set to background null by default, and never set to anything else at any other time (or Android method must be used to null it once set otherwise)
+            //2) If ContentPage background is set manually and must be unset, must use Android method SetBackground(null) - not sure if this applies to other view types.
+            //3) Must run: Platform.CurrentActivity.Window.DecorView.SetBackground(null); 
+            
 
             //===========================================
             //OPTIONALLY ADD MORE ITEMS TO SEE RESULT
@@ -71,7 +86,23 @@
                     }
                 }
             };
+            mainPage.HandlerChanged += delegate {
+                mainPage.BackgroundColor = null; // DOES NOT WORK IF BACKGROUND COLOR WAS PREVIOUSLY SET IN ANDROID, STILL OVEDRAWS UNLESS YOU USE ANDROID METHOD BELOW
+#if ANDROID
+
+                //====================================================================
+                //IF YOU COMMENT OUT EITHER OF THESE LINES YOU WILL GET OVERDRAW
+                //====================================================================
+                mainPage.ToPlatform(mainPage.Handler.MauiContext).SetBackground(null); //NECESSARY TO UNDO THE BAKCGROUND COLOR IF IT WAS SET BEFORE 
+                Platform.CurrentActivity.Window.DecorView.SetBackground(null); //===============SOLVES THE EXTRA DRAW
+
+#endif
+            };
         }
+
+        //==============================
+        //IRRELEVANT TO OVERDRAW BUG
+        //==============================
         public void animateElement(VisualElement element) {
             
                 IDispatcherTimer timer = Application.Current.Dispatcher.CreateTimer();
@@ -79,7 +110,7 @@
                 Color color1 = Colors.BlueViolet;
                 //Color color1 = Colors.DeepSkyBlue;
                 Color color2 = Colors.White;
-                timer.Interval = TimeSpan.FromSeconds(1 / 60.0);
+                timer.Interval = TimeSpan.FromSeconds(1 / 120.0);
                 double time = 0;
                 double deltaTime = 0;
                 DateTime lastDateTime = DateTime.Now;
