@@ -32,7 +32,7 @@ namespace Overdraw_Bug {
             //See: https://developer.android.com/topic/performance/rendering/inspect-gpu-rendering
             //1) ContentPage naturally draws with background, setting to null and nothing else solves this.
             //2) If you set ContentPage background to any color (eg. black), then set it to null after using Maui API, this still overdraws using Maui (must use Android.Views.View.SetBackground(null) to reverse this). Not sure if this applies to other views too.
-            //2) Another overdraw occurs due to DecorView being given a white background by default and needing this line to resolve: Platform.CurrentActivity.Window.DecorView.SetBackground(null);
+            //3) Another overdraw occurs due to DecorView being given a white background by default and needing this line to resolve: Platform.CurrentActivity.Window.DecorView.SetBackground(null);
             //Note also: Adding Border/BoxView elements increase overdraw even if they have no background, while Layout/Image elements do not (but this is normal due to the Box/Border being hardware layers)
 
             //=======================
